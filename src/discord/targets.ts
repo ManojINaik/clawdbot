@@ -92,27 +92,25 @@ export async function resolveDiscordTarget(
     return directParse ?? parseDiscordTarget(trimmed, parseOptions);
   }
 
-  // Try to resolve as a username via directory lookup
-  try {
-    const directoryEntries = await listDiscordDirectoryPeersLive({
-      ...options,
-      query: trimmed,
-      limit: 1,
-    });
+  const directoryEntries = await listDiscordDirectoryPeersLive({
+    ...options,
+    query: trimmed,
+    limit: 5,
+  });
 
-    const match = directoryEntries[0];
-    if (match && match.kind === "user") {
-      // Extract user ID from the directory entry (format: "user:<id>")
-      const userId = match.id.replace(/^user:/, "");
-      return buildMessagingTarget("user", userId, trimmed);
+  const selected = selectDiscordUserMatch(trimmed, directoryEntries);
+  if (!selected) {
+    if (directoryEntries.length === 0) {
+      throw new Error(
+        `Discord recipient "${trimmed}" did not match a user. Use "user:<id>" or "<@id>" for DMs, or "channel:<id>" for channel messages.`,
+      );
     }
-  } catch {
-    // Directory lookup failed - fall through to parse as-is
-    // This preserves existing behavior for channel names
+    throw new Error(
+      `Multiple Discord users matched "${trimmed}". Use "user:<id>" or "<@id>" to disambiguate.`,
+    );
   }
 
-  // Fallback to original parsing (for channels, etc.)
-  return parseDiscordTarget(trimmed, parseOptions);
+  return buildMessagingTarget("user", selected, trimmed);
 }
 
 function safeParseDiscordTarget(
@@ -153,4 +151,31 @@ function isLikelyUsername(input: string): boolean {
   }
   // Likely a username if it doesn't match known patterns
   return true;
+}
+
+function selectDiscordUserMatch(
+  query: string,
+  entries: Array<{ kind?: string; id?: string; name?: string; handle?: string }>,
+): string | null {
+  const users = entries.filter((entry) => entry.kind === "user" && entry.id);
+  if (users.length === 0) return null;
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const exactMatches = users.filter((entry) => {
+    const name = entry.name?.trim().toLowerCase();
+    const handle = entry.handle?.trim().toLowerCase().replace(/^@/, "");
+    const id = entry.id?.trim().toLowerCase().replace(/^user:/, "");
+    return name === normalizedQuery || handle === normalizedQuery || id === normalizedQuery;
+  });
+
+  const selected =
+    exactMatches.length === 1
+      ? exactMatches[0]
+      : users.length === 1
+        ? users[0]
+        : null;
+
+  if (!selected?.id) return null;
+  const resolvedId = selected.id.replace(/^user:/i, "").trim();
+  return resolvedId || null;
 }

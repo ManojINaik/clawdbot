@@ -90,11 +90,11 @@ describe("resolveDiscordTarget", () => {
     ).resolves.toMatchObject({ kind: "user", id: "999", normalized: "user:999" });
   });
 
-  it("falls back to parsing when lookup misses", async () => {
+  it("rejects when lookup misses", async () => {
     listPeers.mockResolvedValueOnce([]);
-    await expect(
-      resolveDiscordTarget("general", { cfg, accountId: "default" }),
-    ).resolves.toMatchObject({ kind: "channel", id: "general" });
+    await expect(resolveDiscordTarget("general", { cfg, accountId: "default" })).rejects.toThrow(
+      /did not match a user/i,
+    );
   });
 
   it("does not call directory lookup for explicit user ids", async () => {
