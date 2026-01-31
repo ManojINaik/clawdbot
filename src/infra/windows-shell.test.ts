@@ -11,4 +11,9 @@ describe("wrapPowerShellUtf8Command", () => {
     expect(result).toContain("chcp 65001");
     expect(result).toContain("; echo hi");
   });
+
+  it("preserves non-ASCII command text", () => {
+    const result = wrapPowerShellUtf8Command("dir C:/Users/测试/こんにちは");
+    expect(result).toContain("dir C:/Users/测试/こんにちは");
+  });
 });

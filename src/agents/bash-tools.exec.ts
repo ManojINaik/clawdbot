@@ -363,6 +363,9 @@ async function runExecProcess(opts: {
   let pty: PtyHandle | null = null;
   let stdin: SessionStdin | undefined;
 
+  const command =
+    process.platform === "win32" ? wrapPowerShellUtf8Command(opts.command) : opts.command;
+
   if (opts.sandbox) {
     const { child: spawned } = await spawnWithFallback({
       argv: [
@@ -399,8 +402,6 @@ async function runExecProcess(opts: {
     stdin = child.stdin;
   } else if (opts.usePty) {
     const { shell, args: shellArgs } = getShellConfig();
-    const command =
-      process.platform === "win32" ? wrapPowerShellUtf8Command(opts.command) : opts.command;
     try {
       const ptyModule = (await import("@lydell/node-pty")) as unknown as {
         spawn?: PtySpawn;
@@ -468,8 +469,6 @@ async function runExecProcess(opts: {
     }
   } else {
     const { shell, args: shellArgs } = getShellConfig();
-    const command =
-      process.platform === "win32" ? wrapPowerShellUtf8Command(opts.command) : opts.command;
     const { child: spawned } = await spawnWithFallback({
       argv: [shell, ...shellArgs, command],
       options: {
